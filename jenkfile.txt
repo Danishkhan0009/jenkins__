@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKERHUB_CREDS = credentials('dockerhub')
+        IMAGE_NAME = "danishkhan0988/jenkinstest"
+        DOCKERFILE_DIR = "pushdockerimage"
+    }
+    
+    stages {
+        stage('Clone Repo') {
+            steps {
+                checkout scm
+                sh 'ls *'
+            }
+        }
+        
+        stage('Build Image') {
+            steps {
+                script {
+                    def imageTag = "${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    sh "docker build -t ${imageTag} ${DOCKERFILE_DIR}"
+                }
+            }
+        }
+        
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                    script {
+                        def imageTag = "${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                        sh "docker login -u ${DOCKERHUB_USER} -p ${DOCKERHUB_PASSWORD}"
+                    }
+                }
+            }
+        }
+        
+        stage('Docker Push') {
+            steps {
+                script {
+                    def imageTag = "${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    sh "docker push ${imageTag}"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                sh "docker logout"
+            }
+        }
+    }
+}
